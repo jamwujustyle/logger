@@ -1,14 +1,50 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 )
 
+const (
+	reset   = "\033[0m"
+	cyan    = "\033[36m"
+	magenta = "\033[35m"
+	yellow  = "\033[33m"
+	red     = "\033[31m"
+	boldRed = "\033[31;1m"
+)
+
+type ColorHandler struct {
+	slog.Handler
+}
+
+func (h *ColorHandler) Handle(ctx context.Context, r slog.Record) error {
+	var levelColor string
+
+	switch r.Level {
+	case slog.LevelDebug:
+		levelColor = cyan
+	case slog.LevelInfo:
+		levelColor = magenta
+	case slog.LevelWarn:
+		levelColor = yellow
+	case slog.LevelError:
+		levelColor = red
+	default:
+		levelColor = reset
+	}
+
+	fmt.Print(levelColor)
+	err := h.Handler.Handle(ctx, r)
+	fmt.Print(reset)
+	return err
+}
+
 func InitLogger(withTime bool) {
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	opts := &slog.HandlerOptions{
 		Level:     slog.LevelDebug,
 		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
@@ -19,14 +55,22 @@ func InitLogger(withTime bool) {
 				return slog.String(a.Key, a.Value.Time().Format("15:04:05"))
 			}
 			if a.Key == slog.SourceKey {
-				source := a.Value.Any().(*slog.Source)
-
-				dir := filepath.Base(filepath.Dir(source.File))
-				file := filepath.Base(source.File)
-				return slog.String(a.Key, fmt.Sprintf("%s/%s:%d", dir, file, source.Line))
+				if source, ok := a.Value.Any().(*slog.Source); ok {
+					dir := filepath.Base(filepath.Dir(source.File))
+					file := filepath.Base(source.File)
+					return slog.String(a.Key, fmt.Sprintf("%s/%s:%d", dir, file, source.Line))
+				}
 			}
 			return a
-		},
-	})
-	slog.SetDefault(slog.New(handler))
+		}}
+
+	baseHandler := slog.NewTextHandler(os.Stdout, opts)
+
+	var finalHandler slog.Handler = baseHandler
+
+	if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
+		finalHandler = &ColorHandler{Handler: baseHandler}
+	}
+
+	slog.SetDefault(slog.New(finalHandler))
 }
