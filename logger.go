@@ -37,7 +37,7 @@ func (h *ColorHandler) Handle(ctx context.Context, r slog.Record) error {
 		levelColor = reset
 	}
 	os.Stdout.Write([]byte(levelColor))
-	// defer os.Stdout.Write([]byte(reset))
+	defer os.Stdout.Write([]byte(reset))
 	return h.Handler.Handle(ctx, r)
 }
 
