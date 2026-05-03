@@ -22,7 +22,7 @@ type ColorHandler struct {
 }
 
 func (h *ColorHandler) Handle(ctx context.Context, r slog.Record) error {
-	var levelColor string
+	levelColor := reset
 
 	switch r.Level {
 	case slog.LevelDebug:
@@ -36,11 +36,9 @@ func (h *ColorHandler) Handle(ctx context.Context, r slog.Record) error {
 	default:
 		levelColor = reset
 	}
-
-	fmt.Print(levelColor)
-	err := h.Handler.Handle(ctx, r)
-	fmt.Print(reset)
-	return err
+	os.Stdout.Write([]byte(levelColor))
+	// defer os.Stdout.Write([]byte(reset))
+	return h.Handler.Handle(ctx, r)
 }
 
 func InitLogger(withTime bool) {
